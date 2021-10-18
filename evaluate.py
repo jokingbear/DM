@@ -7,7 +7,7 @@ import pandas as pd
 import argparse
 
 from pathlib import Path
-from model import regchest as classifier
+from models import regchest as classifier
 from plasma.training import utils
 from plasma.training.data.augmentations import MinEdgeCrop, MinEdgeResize
 from plasma.modules import tta
@@ -55,7 +55,13 @@ if __name__ == "__main__":
     checkpoint = torch.load(args.checkpoint)
     model = classifier()
     print(model.load_state_dict(checkpoint))
-    model = model.cuda()
+    
+    augs = [
+        tta.HorizontalFlip(),
+        tta.Zoom()
+    ]
+    
+    model = tta.Compose(model, augs).cuda()
     
     # load columns
     columns = np.load('configs/columns.npy')
@@ -79,7 +85,7 @@ if __name__ == "__main__":
     with utils.eval_modules(model):
         for imgs in utils.get_progress(loader, total=len(loader)):
             imgs = imgs.cuda().float()
-            probs = model(imgs)
+            probs = model(imgs).mean(dim=1)
             preds.append(probs.cpu().numpy())
     preds = np.concatenate(preds, axis=0)
     
